@@ -1,13 +1,16 @@
 ﻿// Parts of this file were copied from NHibernate.AdoNet.SqlClientBatchingBatcherFactory, but modified to use ReliableSqlDbConnection
 // The #regions indicate the copied code
 using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using System.Data.SqlClient;
 using System.Reflection;
 using System.Text;
 using NHibernate.AdoNet;
 using NHibernate.AdoNet.Util;
 using NHibernate.Exceptions;
+using NHibernate.Mapping;
 
 namespace NHibernate.SqlAzure
 {
@@ -114,7 +117,18 @@ namespace NHibernate.SqlAzure
             }
             catch (DbException e)
             {
-                throw ADOExceptionHelper.Convert(Factory.SQLExceptionConverter, e, "could not execute batch command.");
+#if DEBUG
+                var sqlCommand = ps.CommandText;
+                var sqlParameters = new List<string>();
+                foreach (SqlParameter param in ps.Parameters)
+                {
+                    sqlParameters.Add($"{param.ParameterName}={param.Value}");
+                }
+                throw ADOExceptionHelper.Convert(Factory.SQLExceptionConverter, e, 
+                    $"could not execute batch command. (sql={sqlCommand}, params={String.Join(",",sqlParameters)})");
+#else
+                throw;
+#endif
             }
 
             Expectations.VerifyOutcomeBatched(_totalExpectedRowsAffected, rowsAffected);
@@ -122,7 +136,7 @@ namespace NHibernate.SqlAzure
             _currentBatch.Dispose();
             _totalExpectedRowsAffected = 0;
             _currentBatch = CreateConfiguredBatch();
-            #endregion
+#endregion
         }
 
         /// <summary>
